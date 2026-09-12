@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Permit Tracker">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<title>UAE Site Permit & Gate Pass Tracker</title>
+<style>
+  :root{
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --accent: #C2410C;
+    --accent-ink: #ffffff;
+    --danger: #B91C1C;
+    --danger-bg: #FDECEC;
+    --warning: #92400E;
+    --warning-bg: #FFF3D6;
+    --success: #15803D;
+    --success-bg: #E8F6EC;
+    --info: #1D4ED8;
+    --info-bg: #E7EEFD;
+    --whatsapp: #128C4A;
+    --radius-s: 4px;
+    --radius-m: 8px;
+    --header-h: 58px;
+    --tabbar-h: 64px;
+  }
+  html[data-theme="light"]{
+    --bg: #FFFFFF;
+    --surface: #FAFAF7;
+    --surface-raised: #FFFFFF;
+    --text: #0B0B0A;
+    --text-dim: #55534C;
+    --border: #DAD7CC;
+    --border-strong: #171613;
+    --glass: rgba(255,255,255,0.72);
+  }
+  html[data-theme="dark"]{
+    --bg: #101113;
+    --surface: #17181B;
+    --surface-raised: #1E2023;
+    --text: #F5F3EE;
+    --text-dim: #A8A69E;
+    --border: #2C2E32;
+    --border-strong: #47494E;
+    --glass: rgba(16,17,19,0.72);
+    --danger: #FF6B6B;
+    --danger-bg: #3A1616;
+    --warning: #FFC24B;
+    --warning-bg: #3A2C0C;
+    --success: #4ADE80;
+    --success-bg: #103A1E;
+    --info: #6C9BFF;
+    --info-bg: #142042;
+    --accent: #E8720F;
+  }
+
+  html{font-size:18px;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:var(--font);
+    background:var(--bg);
+    color:var(--text);
+    font-size:1rem;
+    line-height:1.5;
+    overscroll-behavior-y:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{
+    height:100vh; height:100dvh;
+    display:flex; flex-direction:column;
+    position:relative;
+  }
+
+  /* ---------- HEADER ---------- */
+  header.topbar{
+    position:sticky; top:0; z-index:40;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    background:var(--glass);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+    border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; flex-direction:column; line-height:1.15;}
+  .brand .kicker{font-size:11px; font-weight:700; letter-spacing:.02em; color:var(--accent);}
+  .brand h1{margin:0; font-size:1.05rem; font-weight:600; color:var(--text); letter-spacing:-0.01em;}
+  .header-actions{display:flex; gap:8px;}
+  .icon-btn{
+    width:52px; height:52px; border-radius:50%;
+    border:1px solid var(--border-strong);
+    background:var(--surface-raised);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0; color:var(--text);
+  }
+  .icon-btn svg{width:22px; height:22px;}
+
+  /* ---------- MAIN / VIEWS ---------- */
+  main{
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 20px);
+  }
+  .view{display:none; padding:16px 16px 8px;}
+  .view.active{display:block; animation: fadeSlideUp .38s cubic-bezier(.2,.7,.3,1);}
+  @keyframes fadeSlideUp{from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){ .view.active{animation:none;} .fab{animation:none !important;} }
+
+  .section-title{
+    font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-dim); margin:18px 2px 10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .section-title:first-child{margin-top:2px;}
+  .section-title .mini-add{
+    text-transform:none; font-size:13px; font-weight:800; color:var(--accent); cursor:pointer; letter-spacing:0;
+  }
+
+  /* ---------- FILTER CHIPS ---------- */
+  .chip-row{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; margin-bottom:6px;}
+  .chip{
+    flex-shrink:0; padding:0 18px; min-height:48px; display:flex; align-items:center; border-radius:24px;
+    border:1.5px solid var(--border-strong); background:var(--surface);
+    font-size:0.9rem; font-weight:700; color:var(--text); cursor:pointer;
+  }
+  .chip.active{background:var(--text); color:var(--bg); border-color:var(--text);}
+  html[data-theme="dark"] .chip.active{background:var(--accent); border-color:var(--accent); color:#111;}
+
+  /* ---------- SWIPE WRAPPER + PERMIT CARD ---------- */
+  .card-swipe-wrap{position:relative; border-radius:var(--radius-m); margin-bottom:12px; overflow:hidden;}
+  .swipe-actions{position:absolute; top:0; right:0; bottom:0; width:150px; display:flex; z-index:1;}
+  .swipe-btn{
+    flex:1; min-height:56px; border:none; color:#fff; font-size:0.8rem; font-weight:800; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  }
+  .swipe-btn svg{width:18px; height:18px;}
+  .swipe-btn.renew{background:var(--info);}
+  .swipe-btn.delete{background:var(--danger);}
+
+  .card{
+    position:relative; z-index:2;
+    background:var(--surface-raised);
+    border:1px solid var(--border);
+    border-left:6px solid var(--border-strong);
+    border-radius:var(--radius-m);
+    padding:14px 14px 14px 13px;
+    touch-action: pan-y;
+    will-change: transform;
+    transition: transform .25s ease;
+  }
+  .card.status-expired{border-left-color:var(--danger);}
+  .card.status-expiring{border-left-color:var(--warning);}
+  .card.status-valid{border-left-color:var(--success);}
+
+  .card-row{display:flex; gap:12px; align-items:flex-start;}
+  .ring-wrap{flex-shrink:0; width:46px; height:46px; position:relative;}
+  .ring-wrap svg{display:block;}
+  .card-main{flex:1; min-width:0;}
+  .card-top-inline{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .card-site{font-size:1.15rem; font-weight:600; color:var(--text); line-height:1.3;}
+  .card-type{font-size:0.8rem; font-weight:700; color:var(--text-dim); margin-top:3px; text-transform:uppercase; letter-spacing:.03em;}
+  .badge{flex-shrink:0; font-size:0.72rem; font-weight:800; padding:6px 10px; border-radius:20px; white-space:nowrap;}
+  .badge.status-expired{color:var(--danger); background:var(--danger-bg);}
+  .badge.status-expiring{color:var(--warning); background:var(--warning-bg);}
+  .badge.status-valid{color:var(--success); background:var(--success-bg);}
+
+  .card-meta{display:flex; justify-content:space-between; align-items:flex-end; margin-top:12px; gap:8px;}
+  .card-id-wrap{display:flex; align-items:center; gap:8px; min-width:0;}
+  .id-blur{
+    font-family:var(--mono); font-size:0.85rem; color:var(--text-dim);
+    filter: blur(6px); transition: filter .2s ease; cursor:pointer; user-select:none;
+    padding:8px 0; min-height:32px; display:inline-flex; align-items:center;
+  }
+  .id-blur.revealed{filter:blur(0);}
+  .doc-thumb{width:30px; height:30px; border-radius:5px; object-fit:cover; border:1px solid var(--border); flex-shrink:0;}
+  .card-expiry{text-align:right; flex-shrink:0;}
+  .card-expiry .lbl{font-size:0.72rem; color:var(--text-dim); font-weight:700;}
+  .card-expiry .val{font-family:var(--mono); font-size:0.95rem; font-weight:600; color:var(--text);}
+
+  .empty-state{text-align:center; padding:50px 20px; color:var(--text-dim);}
+  .empty-state svg{width:44px; height:44px; margin-bottom:12px; opacity:.5;}
+  .empty-state p{font-size:14px; margin:0;}
+
+  /* ---------- FAB ---------- */
+  .fab-wrap{
+    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) - 27px);
+    transform:translateX(-50%); z-index:50;
+  }
+  .fab{
+    width:58px; height:58px; border-radius:50%; border:4px solid var(--bg);
+    background:var(--accent); color:#fff; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    animation: fabPulse 2.6s ease-in-out infinite;
+  }
+  .fab svg{width:26px; height:26px;}
+  @keyframes fabPulse{
+    0%,100%{box-shadow:0 3px 10px rgba(0,0,0,.25), 0 0 0 0 rgba(194,65,12,.35);}
+    50%{box-shadow:0 3px 10px rgba(0,0,0,.25), 0 0 0 10px rgba(194,65,12,0);}
+  }
+
+  /* ---------- FORM ---------- */
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12.5px; font-weight:700; color:var(--text-dim); margin-bottom:7px; text-transform:uppercase; letter-spacing:.03em;}
+  .field input, .field select, .field textarea{
+    width:100%; min-height:56px; border-radius:var(--radius-m);
+    border:1.5px solid var(--border-strong); background:var(--surface);
+    color:var(--text); font-size:1rem; padding:0 14px; font-family:var(--font); line-height:1.5;
+  }
+  .field textarea{min-height:90px; padding:14px; resize:vertical;}
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .btn-primary{
+    width:100%; min-height:56px; border-radius:var(--radius-m); border:none;
+    background:var(--accent); color:var(--accent-ink); font-size:1.05rem; font-weight:800;
+    cursor:pointer; margin-top:6px;
+  }
+  .btn-primary:active{opacity:.85;}
+  .btn-secondary{
+    width:100%; min-height:56px; border-radius:var(--radius-m);
+    border:1.5px solid var(--border-strong); background:transparent; color:var(--text);
+    font-size:1rem; font-weight:700; cursor:pointer; margin-top:10px;
+  }
+  form p.form-hint{font-size:12.5px; color:var(--text-dim); margin:-6px 0 18px;}
+
+  .photo-capture-btn{
+    width:100%; min-height:56px; border-radius:var(--radius-m);
+    border:1.5px dashed var(--border-strong); background:var(--surface);
+    color:var(--text); font-size:1rem; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .photo-capture-btn svg{width:19px; height:19px;}
+  .photo-preview{margin-top:12px; display:flex; align-items:center; gap:10px;}
+  .photo-preview img{width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--border);}
+  .photo-preview .remove-photo{font-size:12.5px; font-weight:700; color:var(--danger); cursor:pointer;}
+
+  /* ---------- FULL SCREEN MODAL ---------- */
+  .fullscreen-modal{
+    position:fixed; inset:0; z-index:70; background:var(--bg);
+    transform:translateY(100%); transition:transform .35s cubic-bezier(.2,.8,.3,1);
+    display:flex; flex-direction:column;
+  }
+  .fullscreen-modal.show{transform:translateY(0);}
+  .fs-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px; border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .fs-header h2{margin:0; font-size:1.1rem; font-weight:600;}
+  .fs-body{flex:1; overflow-y:auto; padding:18px 18px calc(30px + env(safe-area-inset-bottom));}
+
+  /* ---------- SITE DIRECTORY ---------- */
+  .site-card{background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-m); padding:18px; margin-bottom:14px;}
+  .site-name{font-size:1.15rem; font-weight:600; margin-bottom:10px;}
+  .contact-row{display:flex; justify-content:space-between; align-items:center; min-height:40px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:0.9rem;}
+  .contact-row:last-of-type{border-bottom:none;}
+  .contact-row .role{color:var(--text-dim); font-weight:700;}
+  .contact-row .person{font-weight:600; text-align:right;}
+  .site-actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
+  .site-actions a{
+    flex:1 1 30%; text-align:center; min-height:56px; display:flex; align-items:center; justify-content:center;
+    border-radius:var(--radius-m); font-size:0.82rem; font-weight:800; text-decoration:none; gap:5px;
+  }
+  .btn-call{background:var(--success-bg); color:var(--success); border:1.5px solid var(--success);}
+  .btn-nav{background:var(--warning-bg); color:var(--warning); border:1.5px solid var(--warning);}
+  .btn-wa{background:rgba(18,140,74,0.1); color:var(--whatsapp); border:1.5px solid var(--whatsapp);}
+  .site-actions svg{width:15px; height:15px;}
+
+  .fab-inline{
+    width:100%; min-height:56px; border-radius:var(--radius-m); border:1.5px dashed var(--border-strong);
+    background:none; color:var(--text); font-weight:700; font-size:1rem; cursor:pointer; margin-top:4px;
+  }
+
+  /* ---------- KANBAN / RENEWALS ---------- */
+  .kanban-scroll{display:flex; gap:12px; overflow-x:auto; padding:4px 4px 12px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;}
+  .kanban-col{flex:0 0 78%; scroll-snap-align:start; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m); padding:12px; min-height:60vh;}
+  .kanban-col h3{font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; margin:2px 0 12px; display:flex; justify-content:space-between; color:var(--text-dim);}
+  .kanban-col h3 .count{background:var(--border-strong); color:var(--bg); font-size:11px; padding:2px 8px; border-radius:10px;}
+  .kanban-col.col-submitted{border-top:4px solid var(--info);}
+  .kanban-col.col-processing{border-top:4px solid var(--warning);}
+  .kanban-col.col-ready{border-top:4px solid var(--success);}
+  .renewal-card{background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-s); padding:12px; margin-bottom:10px;}
+  .renewal-card .r-title{font-size:1rem; font-weight:600;}
+  .renewal-card .r-sub{font-size:0.78rem; color:var(--text-dim); margin-top:2px; text-transform:uppercase; letter-spacing:.02em;}
+  .renewal-card .r-notes{font-size:0.85rem; color:var(--text-dim); margin-top:8px; line-height:1.5;}
+  .renewal-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;}
+  .r-btn{flex:1 1 45%; min-height:48px; border-radius:8px; border:1px solid var(--border-strong); background:var(--surface); color:var(--text); font-size:0.8rem; font-weight:800; cursor:pointer;}
+  .r-btn.r-danger{color:var(--danger); border-color:var(--danger);}
+  .kanban-hint{font-size:12px; color:var(--text-dim); text-align:center; margin-bottom:8px;}
+
+  /* ---------- TAB BAR ---------- */
+  nav.tabbar{
+    position:sticky; bottom:0; z-index:45; display:flex;
+    background:var(--glass);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+    border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom);
+    height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+  .tab-btn{flex:1; border:none; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:var(--text-dim); padding-top:6px;}
+  .tab-btn svg{width:22px; height:22px;}
+  .tab-btn span{font-size:0.72rem; font-weight:700;}
+  .tab-btn.active{color:var(--accent);}
+
+  /* ---------- TOAST ---------- */
+  #toast{
+    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
+    transform:translate(-50%, 20px);
+    background:var(--border-strong); color:var(--bg);
+    padding:13px 22px; border-radius:30px; font-size:14px; font-weight:700;
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+    z-index:100; white-space:nowrap; max-width:90vw; text-overflow:ellipsis; overflow:hidden;
+  }
+  #toast.show{opacity:1; transform:translate(-50%, 0);}
+
+  /* ---------- BOTTOM SHEET ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; opacity:0; pointer-events:none; transition:opacity .25s ease;}
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:61;
+    background:var(--surface-raised); border-radius:18px 18px 0 0;
+    padding:10px 20px calc(24px + env(safe-area-inset-bottom));
+    max-height:82vh; overflow-y:auto;
+    transform:translateY(100%); transition:transform .3s cubic-bezier(.2,.8,.3,1);
+  }
+  .overlay.show .sheet{transform:translateY(0);}
+  .sheet-handle{width:38px; height:5px; border-radius:3px; background:var(--border-strong); opacity:.4; margin:8px auto 16px;}
+  .sheet h2{font-size:1.2rem; font-weight:600; margin:0 0 4px;}
+  .sheet .sub{color:var(--text-dim); font-size:0.85rem; margin-bottom:18px;}
+  .detail-row{display:flex; justify-content:space-between; align-items:center; min-height:48px; padding:10px 0; border-bottom:1px solid var(--border); font-size:0.95rem; gap:10px;}
+  .detail-row .k{color:var(--text-dim); font-weight:700; flex-shrink:0;}
+  .detail-row .v{font-weight:600; text-align:right;}
+  .detail-photo{width:100%; max-height:220px; object-fit:cover; border-radius:10px; margin:14px 0; border:1px solid var(--border);}
+  .sheet-actions{display:flex; gap:10px; margin-top:20px;}
+  .btn-danger{flex:1; min-height:56px; border-radius:var(--radius-m); border:1.5px solid var(--danger); background:var(--danger-bg); color:var(--danger); font-weight:800; font-size:0.95rem; cursor:pointer;}
+  .btn-close{flex:1; min-height:56px; border-radius:var(--radius-m); border:1.5px solid var(--border-strong); background:transparent; color:var(--text); font-weight:800; font-size:0.95rem; cursor:pointer;}
+
+  /* ---------- EMBEDDED MAP ---------- */
+  .map-wrap{position:relative; height:50vh; min-height:280px; border-radius:var(--radius-m); overflow:hidden; border:1px solid var(--border); margin-bottom:18px; background:var(--surface);}
+  #siteMap{width:100%; height:100%;}
+  .map-fallback{
+    position:absolute; inset:0; z-index:500; background:var(--surface);
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; text-align:center; gap:6px;
+  }
+  .map-fallback.show{display:flex;}
+  .map-fallback svg{width:34px; height:34px; opacity:.5; margin-bottom:4px; color:var(--text-dim);}
+  .map-fallback p{margin:0; font-size:0.95rem; font-weight:700; color:var(--text);}
+  .map-fallback .coord-list{font-family:var(--mono); font-size:0.8rem; color:var(--text-dim); margin-top:10px; line-height:1.7; max-height:120px; overflow-y:auto;}
+  .leaflet-popup-content{font-size:0.85rem; line-height:1.5; font-family:var(--font);}
+  .leaflet-popup-content .popup-title{font-weight:700; font-size:0.95rem; margin-bottom:4px;}
+  .leaflet-popup-content .popup-actions{display:flex; gap:8px; margin-top:8px;}
+  .leaflet-popup-content .popup-actions a{font-size:0.78rem; font-weight:700; text-decoration:none; color:var(--accent);}
+
+  /* ---------- GITHUB FOOTER ---------- */
+  .github-footer{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:22px 0 10px; color:var(--text-dim); font-size:0.85rem; text-decoration:none; min-height:56px;
+  }
+  .github-footer svg{width:20px; height:20px;}
+  .github-footer:active{opacity:.7;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="kicker">UAE FIELD OPS</span>
+      <h1>Permit & Gate Pass Tracker</h1>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="chip-row" id="filterChips">
+        <button class="chip active" data-filter="all">All</button>
+        <button class="chip" data-filter="expired">Expired</button>
+        <button class="chip" data-filter="expiring">Expiring Soon</button>
+        <button class="chip" data-filter="valid">Valid</button>
+      </div>
+      <div id="dashboardList"></div>
+    </section>
+
+    <!-- RENEWALS KANBAN -->
+    <section class="view" id="view-renewals">
+      <h2 class="section-title">Renewal Pipeline <span class="mini-add" id="addRenewalBtn">+ Add</span></h2>
+      <div class="kanban-hint">Swipe columns sideways to move between stages</div>
+      <div class="kanban-scroll" id="kanbanScroll"></div>
+    </section>
+
+    <!-- SITE DIRECTORY -->
+    <section class="view" id="view-directory">
+      <h2 class="section-title">Site Directory</h2>
+      <div class="map-wrap">
+        <div id="siteMap"></div>
+        <div class="map-fallback" id="mapFallback">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6Z"/><path d="M9 4v14M15 6v14"/></svg>
+          <p>Map offline</p>
+          <div class="coord-list" id="mapFallbackCoords"></div>
+        </div>
+      </div>
+      <div id="siteList"></div>
+      <a class="github-footer" href="https://github.com/esp046-cyber/Site-Permit-Gate-Pass-Tracker-UAE-Specific-" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5 3.3 9.3 7.8 10.8.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.4-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11 11 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.9 1.2 1.9 1.2 3.2 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12C23.5 5.7 18.3.5 12 .5Z"/></svg>
+        View source on GitHub
+      </a>
+    </section>
+  </main>
+
+  <div class="fab-wrap">
+    <button class="fab" id="openAddFab" aria-label="Add new pass">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-tab="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="tab-btn" data-tab="renewals">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v4M16 4v4"/></svg>
+      <span>Renewals</span>
+    </button>
+    <button class="tab-btn" data-tab="directory">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span>Directory</span>
+    </button>
+  </nav>
+
+  <div id="toast"></div>
+
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+  <!-- FULL SCREEN ADD PASS MODAL -->
+  <div class="fullscreen-modal" id="addModal">
+    <div class="fs-header">
+      <h2>New Permit / Pass</h2>
+      <button class="icon-btn" id="closeAddModal" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="fs-body">
+      <form id="addForm">
+        <div class="field">
+          <label for="f-type">Pass Type</label>
+          <select id="f-type" required>
+            <option value="Gate Pass">Gate Pass</option>
+            <option value="PTW">Permit to Work (PTW)</option>
+            <option value="HSE Induction">HSE Safety Induction</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-site">Site Name</label>
+          <input type="text" id="f-site" placeholder="e.g. DEWA Jebel Ali Power Station" required list="siteSuggestions">
+          <datalist id="siteSuggestions"></datalist>
+        </div>
+        <div class="field">
+          <label for="f-doc">ID / Document Number</label>
+          <input type="text" id="f-doc" placeholder="e.g. PTW-2026-0099" required>
+        </div>
+        <div class="field">
+          <label for="f-expiry">Expiry Date</label>
+          <input type="date" id="f-expiry" required>
+        </div>
+        <div class="field">
+          <label for="f-contact">Manager / Contact Number</label>
+          <input type="tel" id="f-contact" placeholder="+971 5X XXX XXXX" required>
+        </div>
+        <div class="field">
+          <label>Document Photo (optional)</label>
+          <button type="button" class="photo-capture-btn" id="photoTriggerBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7L17 6h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Capture Document Photo
+          </button>
+          <input type="file" accept="image/*" capture="environment" id="f-photo" style="display:none">
+          <div class="photo-preview" id="photoPreview" style="display:none;">
+            <img id="photoPreviewImg" src="" alt="Captured document">
+            <span class="remove-photo" id="removePhotoBtn">Remove photo</span>
+          </div>
+        </div>
+        <p class="form-hint">Saved locally on this device. No signal required at the gate.</p>
+        <button type="submit" class="btn-primary">Save Pass</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function(){
+  "use strict";
+
+  var KEYS = { PERMITS:"uae_permits_v1", SITES:"uae_sites_v1", THEME:"uae_theme_v1", RENEWALS:"uae_renewals_v1" };
+  var STAGES = ["submitted","processing","ready"];
+  var STAGE_LABELS = { submitted:"Submitted", processing:"Under HSE Review", ready:"Ready for Collection" };
+
+  function vibrate(ms){ try{ if (navigator.vibrate) navigator.vibrate(ms || 50); }catch(e){} }
+
+  function loadJSON(key, fallback){
+    try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+    catch(e){ console.error("Load error", key, e); return fallback; }
+  }
+  function saveJSON(key, data){
+    try{ localStorage.setItem(key, JSON.stringify(data)); return true; }
+    catch(e){ console.error("Save error", key, e); return false; }
+  }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function addDays(date, days){ var d = new Date(date); d.setDate(d.getDate() + days); return d; }
+  function toISODate(d){ return d.toISOString().slice(0,10); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  /* ---------------- SEED DATA ---------------- */
+  function seedIfEmpty(){
+    var permits = loadJSON(KEYS.PERMITS, null);
+    if (!permits){
+      var today = new Date();
+      permits = [
+        { id: uid(), type:"HSE Induction", siteName:"ADNOC Ruwais Refinery", docNumber:"HSE-2024-0451", expiryDate: toISODate(addDays(today,-14)), contact:"+971502223344", photo:null },
+        { id: uid(), type:"Gate Pass", siteName:"AGAC Al Ain Compound", docNumber:"GP-88213", expiryDate: toISODate(addDays(today,4)), contact:"+971504445566", photo:null },
+        { id: uid(), type:"PTW", siteName:"DEWA Jebel Ali Power Station", docNumber:"PTW-2026-0099", expiryDate: toISODate(addDays(today,75)), contact:"+971506667788", photo:null }
+      ];
+      saveJSON(KEYS.PERMITS, permits);
+    }
+
+    var sites = loadJSON(KEYS.SITES, null);
+    if (!sites){
+      sites = [
+        { id: uid(), siteName:"ADNOC Ruwais Refinery", managerName:"Ahmed Al Mazrouei", managerPhone:"+971502223344", hseName:"Fatima Al Suwaidi", hsePhone:"+971503334455", lat:"24.1112", lng:"52.7306" },
+        { id: uid(), siteName:"AGAC Al Ain Compound", managerName:"Rashid Al Nuaimi", managerPhone:"+971504445566", hseName:"Mohammed Saeed", hsePhone:"+971505556677", lat:"24.2075", lng:"55.7447" },
+        { id: uid(), siteName:"DEWA Jebel Ali Power Station", managerName:"Khalid Bin Sultan", managerPhone:"+971506667788", hseName:"Aisha Al Falasi", hsePhone:"+971507778899", lat:"24.9857", lng:"55.0273" }
+      ];
+      saveJSON(KEYS.SITES, sites);
+    }
+
+    var renewals = loadJSON(KEYS.RENEWALS, null);
+    if (!renewals){
+      renewals = [
+        { id: uid(), siteName:"ADNOC Ruwais Refinery", passType:"HSE Induction", notes:"Renewal documents submitted to HSE desk.", stage:"submitted" },
+        { id: uid(), siteName:"AGAC Al Ain Compound", passType:"Gate Pass", notes:"Awaiting security clearance review.", stage:"processing" },
+        { id: uid(), siteName:"DEWA Jebel Ali Power Station", passType:"PTW", notes:"Approved. Collect from main gate office.", stage:"ready" }
+      ];
+      saveJSON(KEYS.RENEWALS, renewals);
+    }
+  }
+
+  /* ---------------- STATUS LOGIC ---------------- */
+  function getStatus(expiryDate){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var exp = new Date(expiryDate + "T00:00:00");
+    var diffDays = Math.round((exp - today) / 86400000);
+    if (diffDays < 0) return { key:"expired", label:"EXPIRED", days:diffDays };
+    if (diffDays <= 7) return { key:"expiring", label: diffDays === 0 ? "TODAY" : diffDays + "D LEFT", days:diffDays };
+    return { key:"valid", label: diffDays + "D LEFT", days:diffDays };
+  }
+  function formatDate(iso){
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
+  }
+
+  /* ---------------- SVG PROGRESS RING ---------------- */
+  function renderRing(status){
+    var pct = status.key === "expired" ? 0 : Math.min(1, Math.max(0.04, status.days / 60));
+    var size = 46, stroke = 4, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    var offset = c * (1 - pct);
+    var colorVar = status.key === "expired" ? "var(--danger)" : status.key === "expiring" ? "var(--warning)" : "var(--success)";
+    return (
+      '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="' + stroke + '"/>' +
+        '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + colorVar + '" stroke-width="' + stroke +
+          '" stroke-linecap="round" stroke-dasharray="' + c.toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) +
+          '" transform="rotate(-90 ' + size/2 + ' ' + size/2 + ')" style="transition:stroke-dashoffset .6s ease;"/>' +
+        (status.key === "expired" ? '<text x="50%" y="56%" text-anchor="middle" font-size="9" font-weight="800" fill="var(--danger)" font-family="sans-serif">!</text>' : '') +
+      '</svg>'
+    );
+  }
+
+  /* ---------------- PRIVACY BLUR ---------------- */
+  var revealTimers = {};
+  function bindBlurToggle(root){
+    Array.prototype.forEach.call(root.querySelectorAll(".id-blur"), function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        var key = el.getAttribute("data-blur-id");
+        el.classList.add("revealed");
+        vibrate(20);
+        clearTimeout(revealTimers[key]);
+        revealTimers[key] = setTimeout(function(){ el.classList.remove("revealed"); }, 5000);
+      });
+    });
+  }
+
+  /* ---------------- SWIPE-TO-ACTION ---------------- */
+  var OPEN_OFFSET = -150;
+  var openSwipeCard = null;
+
+  function bindSwipe(wrap){
+    var fg = wrap.querySelector(".card");
+    var startX = 0, startY = 0, baseX = 0, currentX = 0, dragging = false, horizontal = false;
+
+    fg.addEventListener("pointerdown", function(e){
+      startX = e.clientX; startY = e.clientY;
+      baseX = wrap.classList.contains("open") ? OPEN_OFFSET : 0;
+      currentX = baseX; dragging = true; horizontal = false;
+      fg.style.transition = "none";
+      try{ fg.setPointerCapture(e.pointerId); }catch(err){}
+    });
+
+    fg.addEventListener("pointermove", function(e){
+      if (!dragging) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!horizontal){
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) horizontal = true;
+        else if (Math.abs(dy) > 8) { dragging = false; return; }
+        else return;
+      }
+      e.preventDefault();
+      currentX = Math.max(OPEN_OFFSET, Math.min(0, baseX + dx));
+      fg.style.transform = "translateX(" + currentX + "px)";
+    });
+
+    function endDrag(e){
+      if (!dragging) return;
+      dragging = false;
+      fg.style.transition = "transform .25s ease";
+      if (!horizontal){
+        // treat as tap
+        if (Math.abs((e.clientX||startX) - startX) < 6){
+          if (!wrap.classList.contains("open")){
+            openDetailFromWrap(wrap);
+          } else {
+            closeSwipe(wrap);
+          }
+        }
+        return;
+      }
+      if (currentX < OPEN_OFFSET / 2){
+        openSwipe(wrap);
+      } else {
+        closeSwipe(wrap);
+      }
+    }
+    fg.addEventListener("pointerup", endDrag);
+    fg.addEventListener("pointercancel", endDrag);
+  }
+
+  function openSwipe(wrap){
+    if (openSwipeCard && openSwipeCard !== wrap) closeSwipe(openSwipeCard);
+    wrap.classList.add("open");
+    wrap.querySelector(".card").style.transform = "translateX(" + OPEN_OFFSET + "px)";
+    openSwipeCard = wrap;
+  }
+  function closeSwipe(wrap){
+    wrap.classList.remove("open");
+    wrap.querySelector(".card").style.transform = "translateX(0)";
+    if (openSwipeCard === wrap) openSwipeCard = null;
+  }
+  document.addEventListener("pointerdown", function(e){
+    if (openSwipeCard && !openSwipeCard.contains(e.target)) closeSwipe(openSwipeCard);
+  });
+
+  function openDetailFromWrap(wrap){
+    vibrate(30);
+    openPermitDetail(wrap.getAttribute("data-id"));
+  }
+
+  /* ---------------- RENDER: DASHBOARD ---------------- */
+  var currentFilter = "all";
+
+  function renderDashboard(){
+    var permits = loadJSON(KEYS.PERMITS, []);
+    var list = document.getElementById("dashboardList");
+    var enriched = permits.map(function(p){ return { p:p, status: getStatus(p.expiryDate) }; });
+    enriched.sort(function(a,b){ return a.status.days - b.status.days; });
+    if (currentFilter !== "all") enriched = enriched.filter(function(e){ return e.status.key === currentFilter; });
+
+    if (enriched.length === 0){
+      list.innerHTML =
+        '<div class="empty-state">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>' +
+        '<p>No passes found for this filter.</p></div>';
+      return;
+    }
+
+    list.innerHTML = enriched.map(function(e){
+      var p = e.p, s = e.status;
+      var blurId = "blur-" + p.id;
+      return (
+        '<div class="card-swipe-wrap" data-id="' + p.id + '">' +
+          '<div class="swipe-actions">' +
+            '<button class="swipe-btn renew" data-action="renew" data-id="' + p.id + '">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7M3 12v6h6"/></svg>Renew</button>' +
+            '<button class="swipe-btn delete" data-action="delete" data-id="' + p.id + '">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h8l1-13"/></svg>Delete</button>' +
+          '</div>' +
+          '<div class="card status-' + s.key + '">' +
+            '<div class="card-row">' +
+              '<div class="ring-wrap">' + renderRing(s) + '</div>' +
+              '<div class="card-main">' +
+                '<div class="card-top-inline">' +
+                  '<div><div class="card-site">' + escapeHtml(p.siteName) + '</div>' +
+                  '<div class="card-type">' + escapeHtml(p.type) + '</div></div>' +
+                  '<div class="badge status-' + s.key + '">' + s.label + '</div>' +
+                '</div>' +
+                '<div class="card-meta">' +
+                  '<div class="card-id-wrap">' +
+                    (p.photo ? '<img class="doc-thumb" src="' + p.photo + '" alt="Document photo">' : '') +
+                    '<span class="id-blur" data-blur-id="' + blurId + '">' + escapeHtml(p.docNumber) + '</span>' +
+                  '</div>' +
+                  '<div class="card-expiry"><div class="lbl">EXPIRY</div><div class="val">' + formatDate(p.expiryDate) + '</div></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
+
+    Array.prototype.forEach.call(list.querySelectorAll(".card-swipe-wrap"), function(wrap){ bindSwipe(wrap); });
+    bindBlurToggle(list);
+
+    Array.prototype.forEach.call(list.querySelectorAll('[data-action="delete"]'), function(btn){
+      btn.addEventListener("click", function(){
+        vibrate(50);
+        var id = btn.getAttribute("data-id");
+        if (confirm("Delete this pass? This cannot be undone.")){
+          var updated = loadJSON(KEYS.PERMITS, []).filter(function(x){ return x.id !== id; });
+          saveJSON(KEYS.PERMITS, updated);
+          renderDashboard();
+          showToast("Pass deleted");
+        }
+      });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll('[data-action="renew"]'), function(btn){
+      btn.addEventListener("click", function(){
+        vibrate(50);
+        var id = btn.getAttribute("data-id");
+        var permit = loadJSON(KEYS.PERMITS, []).find(function(x){ return x.id === id; });
+        if (!permit) return;
+        var renewals = loadJSON(KEYS.RENEWALS, []);
+        renewals.push({ id: uid(), siteName: permit.siteName, passType: permit.type, notes: "Renewal for document " + permit.docNumber, stage: "submitted" });
+        saveJSON(KEYS.RENEWALS, renewals);
+        switchTab("renewals");
+        showToast("Added to renewal pipeline");
+      });
+    });
+  }
+
+  function openPermitDetail(id){
+    var permits = loadJSON(KEYS.PERMITS, []);
+    var p = permits.find(function(x){ return x.id === id; });
+    if (!p) return;
+    var s = getStatus(p.expiryDate);
+    var blurId = "detail-blur-" + p.id;
+
+    var sheet = document.getElementById("sheet");
+    sheet.innerHTML =
+      '<div class="sheet-handle"></div>' +
+      '<h2>' + escapeHtml(p.siteName) + '</h2>' +
+      '<div class="sub">' + escapeHtml(p.type) + '</div>' +
+      (p.photo ? '<img class="detail-photo" src="' + p.photo + '" alt="Document photo">' : '') +
+      '<div class="detail-row"><span class="k">Status</span><span class="v badge status-' + s.key + '">' + s.label + '</span></div>' +
+      '<div class="detail-row"><span class="k">Document No.</span><span class="v id-blur" data-blur-id="' + blurId + '">' + escapeHtml(p.docNumber) + '</span></div>' +
+      '<div class="detail-row"><span class="k">Expiry Date</span><span class="v">' + formatDate(p.expiryDate) + '</span></div>' +
+      '<div class="detail-row"><span class="k">Manager Contact</span><span class="v"><a href="tel:' + escapeHtml(p.contact) + '" style="color:var(--accent); text-decoration:none;">' + escapeHtml(p.contact) + '</a></span></div>' +
+      '<div class="sheet-actions">' +
+        '<button class="btn-danger" id="deletePermitBtn">Delete Pass</button>' +
+        '<button class="btn-close" id="closeSheetBtn">Close</button>' +
+      '</div>';
+
+    bindBlurToggle(sheet);
+
+    document.getElementById("deletePermitBtn").addEventListener("click", function(){
+      vibrate(50);
+      if (confirm("Delete this pass? This cannot be undone.")){
+        var updated = loadJSON(KEYS.PERMITS, []).filter(function(x){ return x.id !== id; });
+        saveJSON(KEYS.PERMITS, updated);
+        closeSheet();
+        renderDashboard();
+        showToast("Pass deleted");
+      }
+    });
+    document.getElementById("closeSheetBtn").addEventListener("click", closeSheet);
+    openSheet();
+  }
+
+  /* ---------------- RENDER: RENEWALS KANBAN ---------------- */
+  function renderKanban(){
+    var renewals = loadJSON(KEYS.RENEWALS, []);
+    var container = document.getElementById("kanbanScroll");
+
+    container.innerHTML = STAGES.map(function(stage){
+      var items = renewals.filter(function(r){ return r.stage === stage; });
+      var cardsHtml = items.length ? items.map(function(r){
+        var stageIdx = STAGES.indexOf(r.stage);
+        var backBtn = stageIdx > 0 ? '<button class="r-btn" data-move="-1" data-id="' + r.id + '">&larr; Back</button>' : '';
+        var fwdBtn = stageIdx < STAGES.length - 1 ? '<button class="r-btn" data-move="1" data-id="' + r.id + '">Next &rarr;</button>' : '<button class="r-btn" data-collect="1" data-id="' + r.id + '">Mark Collected</button>';
+        return (
+          '<div class="renewal-card">' +
+            '<div class="r-title">' + escapeHtml(r.siteName) + '</div>' +
+            '<div class="r-sub">' + escapeHtml(r.passType) + '</div>' +
+            (r.notes ? '<div class="r-notes">' + escapeHtml(r.notes) + '</div>' : '') +
+            '<div class="renewal-actions">' + backBtn + fwdBtn +
+              '<button class="r-btn r-danger" data-remove="1" data-id="' + r.id + '">Remove</button>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join("") : '<div class="empty-state" style="padding:24px 8px;"><p>No items here.</p></div>';
+
+      return (
+        '<div class="kanban-col col-' + stage + '">' +
+          '<h3>' + STAGE_LABELS[stage] + ' <span class="count">' + items.length + '</span></h3>' +
+          cardsHtml +
+        '</div>'
+      );
+    }).join("");
+
+    Array.prototype.forEach.call(container.querySelectorAll("[data-move]"), function(btn){
+      btn.addEventListener("click", function(){
+        vibrate(40);
+        var id = btn.getAttribute("data-id");
+        var dir = parseInt(btn.getAttribute("data-move"), 10);
+        var list = loadJSON(KEYS.RENEWALS, []);
+        var item = list.find(function(x){ return x.id === id; });
+        if (!item) return;
+        var idx = STAGES.indexOf(item.stage);
+        var newIdx = Math.max(0, Math.min(STAGES.length - 1, idx + dir));
+        item.stage = STAGES[newIdx];
+        saveJSON(KEYS.RENEWALS, list);
+        renderKanban();
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll("[data-collect]"), function(btn){
+      btn.addEventListener("click", function(){
+        vibrate(60);
+        var id = btn.getAttribute("data-id");
+        var list = loadJSON(KEYS.RENEWALS, []).filter(function(x){ return x.id !== id; });
+        saveJSON(KEYS.RENEWALS, list);
+        renderKanban();
+        showToast("Marked as collected");
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll("[data-remove]"), function(btn){
+      btn.addEventListener("click", function(){
+        vibrate(40);
+        if (!confirm("Remove this item from the pipeline?")) return;
+        var id = btn.getAttribute("data-id");
+        var list = loadJSON(KEYS.RENEWALS, []).filter(function(x){ return x.id !== id; });
+        saveJSON(KEYS.RENEWALS, list);
+        renderKanban();
+      });
+    });
+  }
+
+  function openAddRenewalSheet(){
+    var sites = loadJSON(KEYS.SITES, []);
+    var siteOptions = sites.map(function(s){ return '<option value="' + escapeHtml(s.siteName) + '">'; }).join("");
+    var sheet = document.getElementById("sheet");
+    sheet.innerHTML =
+      '<div class="sheet-handle"></div>' +
+      '<h2>Add Renewal</h2>' +
+      '<div class="sub">Track a document currently in the approval process</div>' +
+      '<div class="field"><label>Site Name</label><input type="text" id="rn-site" list="rnSiteList" required><datalist id="rnSiteList">' + siteOptions + '</datalist></div>' +
+      '<div class="field"><label>Pass Type</label><select id="rn-type"><option>Gate Pass</option><option>PTW</option><option>HSE Induction</option></select></div>' +
+      '<div class="field"><label>Notes</label><textarea id="rn-notes" placeholder="e.g. Submitted to HSE desk on-site"></textarea></div>' +
+      '<button class="btn-primary" id="saveRenewalBtn">Add to Pipeline</button>' +
+      '<button class="btn-close" id="cancelRenewalBtn" style="margin-top:10px;">Cancel</button>';
+
+    document.getElementById("saveRenewalBtn").addEventListener("click", function(){
+      var siteName = document.getElementById("rn-site").value.trim();
+      if (!siteName){ showToast("Please enter a site name"); return; }
+      vibrate(50);
+      var list = loadJSON(KEYS.RENEWALS, []);
+      list.push({ id: uid(), siteName: siteName, passType: document.getElementById("rn-type").value, notes: document.getElementById("rn-notes").value.trim(), stage: "submitted" });
+      saveJSON(KEYS.RENEWALS, list);
+      closeSheet();
+      renderKanban();
+      showToast("Added to renewal pipeline");
+    });
+    document.getElementById("cancelRenewalBtn").addEventListener("click", closeSheet);
+    openSheet();
+  }
+
+  /* ---------------- RENDER: SITE DIRECTORY ---------------- */
+  function renderSiteList(){
+    var sites = loadJSON(KEYS.SITES, []);
+    var container = document.getElementById("siteList");
+
+    var cardsHtml = sites.length ? sites.map(function(s){
+      var mapsUrl = "https://maps.google.com/?q=" + encodeURIComponent(s.lat + "," + s.lng);
+      var waDigits = s.managerPhone.replace(/\D/g, "");
+      var waMsg = encodeURIComponent("Hi " + s.managerName + ", this is regarding site access at " + s.siteName + ". Could you please review my permit at your convenience?");
+      var waUrl = "https://wa.me/" + waDigits + "?text=" + waMsg;
+      return (
+        '<div class="site-card">' +
+          '<div class="site-name">' + escapeHtml(s.siteName) + '</div>' +
+          '<div class="contact-row"><span class="role">Site Manager</span><span class="person">' + escapeHtml(s.managerName) + '</span></div>' +
+          '<div class="contact-row"><span class="role">HSE Officer</span><span class="person">' + escapeHtml(s.hseName) + '</span></div>' +
+          '<div class="contact-row"><span class="role">GPS Coordinates</span><span class="person" style="font-family:var(--mono); font-weight:600;">' + escapeHtml(s.lat) + ', ' + escapeHtml(s.lng) + '</span></div>' +
+          '<div class="site-actions">' +
+            '<a class="btn-call" href="tel:' + escapeHtml(s.managerPhone) + '">Call</a>' +
+            '<a class="btn-wa" href="' + waUrl + '" target="_blank" rel="noopener">' +
+              '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.5.1-.2 0-.4 0-.5C10 9 9.5 7.7 9.3 7.2c-.2-.5-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3z"/><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3.1.8.8-3-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>WhatsApp</a>' +
+            '<a class="btn-nav" href="' + mapsUrl + '" target="_blank" rel="noopener">GPS</a>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("") : '<div class="empty-state"><p>No sites saved yet.</p></div>';
+
+    container.innerHTML = cardsHtml + '<button class="fab-inline" id="addSiteFab">+ Add New Site</button>';
+
+    document.getElementById("addSiteFab").addEventListener("click", function(){
+      vibrate(40);
+      openAddSiteSheet();
+    });
+  }
+
+  function openAddSiteSheet(){
+    var sheet = document.getElementById("sheet");
+    sheet.innerHTML =
+      '<div class="sheet-handle"></div>' +
+      '<h2>Add Site</h2>' +
+      '<div class="sub">Save a new location to the directory</div>' +
+      '<div class="field"><label>Site Name</label><input type="text" id="s-name" required></div>' +
+      '<div class="field"><label>Site Manager Name</label><input type="text" id="s-mgr-name" required></div>' +
+      '<div class="field"><label>Manager Phone</label><input type="tel" id="s-mgr-phone" placeholder="+9715XXXXXXXX" required></div>' +
+      '<div class="field"><label>HSE Officer Name</label><input type="text" id="s-hse-name" required></div>' +
+      '<div class="field"><label>HSE Officer Phone</label><input type="tel" id="s-hse-phone" required></div>' +
+      '<div class="field"><label>Latitude</label><input type="text" id="s-lat" placeholder="e.g. 24.1112" required></div>' +
+      '<div class="field"><label>Longitude</label><input type="text" id="s-lng" placeholder="e.g. 52.7306" required></div>' +
+      '<button class="btn-primary" id="saveSiteBtn">Save Site</button>' +
+      '<button class="btn-close" id="cancelSiteBtn" style="margin-top:10px;">Cancel</button>';
+
+    document.getElementById("saveSiteBtn").addEventListener("click", function(){
+      var name = document.getElementById("s-name").value.trim();
+      var mgrName = document.getElementById("s-mgr-name").value.trim();
+      var mgrPhone = document.getElementById("s-mgr-phone").value.trim();
+      var hseName = document.getElementById("s-hse-name").value.trim();
+      var hsePhone = document.getElementById("s-hse-phone").value.trim();
+      var lat = document.getElementById("s-lat").value.trim();
+      var lng = document.getElementById("s-lng").value.trim();
+      if (!name || !mgrName || !mgrPhone || !hseName || !hsePhone || !lat || !lng){ showToast("Please fill all fields"); return; }
+      vibrate(50);
+      var sites = loadJSON(KEYS.SITES, []);
+      sites.push({ id: uid(), siteName:name, managerName:mgrName, managerPhone:mgrPhone, hseName:hseName, hsePhone:hsePhone, lat:lat, lng:lng });
+      saveJSON(KEYS.SITES, sites);
+      closeSheet();
+      renderSiteList();
+      populateSiteSuggestions();
+      initOrUpdateMap();
+      showToast("Site saved successfully");
+    });
+    document.getElementById("cancelSiteBtn").addEventListener("click", closeSheet);
+    openSheet();
+  }
+
+  function populateSiteSuggestions(){
+    var sites = loadJSON(KEYS.SITES, []);
+    var datalist = document.getElementById("siteSuggestions");
+    datalist.innerHTML = sites.map(function(s){ return '<option value="' + escapeHtml(s.siteName) + '">'; }).join("");
+  }
+
+
+  /* ---------------- EMBEDDED LEAFLET MAP ---------------- */
+  var siteMapInstance = null;
+  var siteMarkersLayer = null;
+  var tileErrorCount = 0;
+
+  function showMapFallback(){
+    var sites = loadJSON(KEYS.SITES, []);
+    var fallback = document.getElementById("mapFallback");
+    var coordsEl = document.getElementById("mapFallbackCoords");
+    coordsEl.innerHTML = sites.map(function(s){
+      return escapeHtml(s.siteName) + ": " + escapeHtml(s.lat) + ", " + escapeHtml(s.lng);
+    }).join("<br>");
+    fallback.classList.add("show");
+  }
+  function hideMapFallback(){
+    document.getElementById("mapFallback").classList.remove("show");
+  }
+
+  function initOrUpdateMap(){
+    var sites = loadJSON(KEYS.SITES, []);
+
+    if (typeof L === "undefined" || !navigator.onLine){
+      showMapFallback();
+      return;
+    }
+
+    try{
+      if (!siteMapInstance){
+        siteMapInstance = L.map("siteMap", { attributionControl:true, zoomControl:true }).setView([24.4, 54.3], 7);
+        var tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 18,
+          attribution: "&copy; OpenStreetMap contributors"
+        });
+        tileLayer.on("tileerror", function(){
+          tileErrorCount++;
+          if (tileErrorCount >= 4) showMapFallback();
+        });
+        tileLayer.on("tileload", function(){ hideMapFallback(); });
+        tileLayer.addTo(siteMapInstance);
+        siteMarkersLayer = L.layerGroup().addTo(siteMapInstance);
+      }
+
+      siteMarkersLayer.clearLayers();
+      var bounds = [];
+      sites.forEach(function(s){
+        var lat = parseFloat(s.lat), lng = parseFloat(s.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+        bounds.push([lat, lng]);
+        var mapsUrl = "https://maps.google.com/?q=" + encodeURIComponent(lat + "," + lng);
+        var popupHtml =
+          '<div class="popup-title">' + escapeHtml(s.siteName) + '</div>' +
+          escapeHtml(s.managerName) + '<br>' +
+          '<div class="popup-actions">' +
+            '<a href="tel:' + escapeHtml(s.managerPhone) + '">Call</a>' +
+            '<a href="' + mapsUrl + '" target="_blank" rel="noopener">Navigate</a>' +
+          '</div>';
+        L.marker([lat, lng]).addTo(siteMarkersLayer).bindPopup(popupHtml);
+      });
+      if (bounds.length) siteMapInstance.fitBounds(bounds, { padding:[30,30], maxZoom:10 });
+
+      setTimeout(function(){ if (siteMapInstance) siteMapInstance.invalidateSize(); }, 200);
+      hideMapFallback();
+    }catch(err){
+      console.error("Map init error", err);
+      showMapFallback();
+    }
+  }
+
+  window.addEventListener("offline", showMapFallback);
+  window.addEventListener("online", function(){
+    if (document.getElementById("view-directory").classList.contains("active")) initOrUpdateMap();
+  });
+
+  /* ---------------- SHEET / MODAL HELPERS ---------------- */
+  function openSheet(){ document.getElementById("overlay").classList.add("show"); }
+  function closeSheet(){ document.getElementById("overlay").classList.remove("show"); }
+  document.getElementById("overlay").addEventListener("click", function(e){ if (e.target.id === "overlay") closeSheet(); });
+
+  /* ---------------- TOAST ---------------- */
+  var toastTimer = null;
+  function showToast(msg){
+    var toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove("show"); }, 2200);
+  }
+
+  /* ---------------- TAB NAVIGATION ---------------- */
+  var views = { dashboard:"view-dashboard", renewals:"view-renewals", directory:"view-directory" };
+
+  function switchTab(tabName){
+    Object.keys(views).forEach(function(key){ document.getElementById(views[key]).classList.remove("active"); });
+    var target = document.getElementById(views[tabName]);
+    void target.offsetWidth;
+    target.classList.add("active");
+    Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(btn){
+      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
+    });
+    if (tabName === "dashboard") renderDashboard();
+    if (tabName === "directory") { renderSiteList(); initOrUpdateMap(); }
+    if (tabName === "renewals") renderKanban();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(btn){
+    btn.addEventListener("click", function(){ vibrate(50); switchTab(btn.getAttribute("data-tab")); });
+  });
+
+  document.getElementById("addRenewalBtn").addEventListener("click", function(){ vibrate(40); openAddRenewalSheet(); });
+
+  /* ---------------- FILTER CHIPS ---------------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".chip"), function(chip){
+    chip.addEventListener("click", function(){
+      vibrate(30);
+      Array.prototype.forEach.call(document.querySelectorAll(".chip"), function(c){ c.classList.remove("active"); });
+      chip.classList.add("active");
+      currentFilter = chip.getAttribute("data-filter");
+      renderDashboard();
+    });
+  });
+
+  /* ---------------- ADD PASS FULLSCREEN MODAL ---------------- */
+  var capturedPhoto = null;
+
+  function openAddModal(){
+    populateSiteSuggestions();
+    var todayISO = new Date().toISOString().slice(0,10);
+    document.getElementById("f-expiry").setAttribute("min", todayISO);
+    document.getElementById("addModal").classList.add("show");
+  }
+  function closeAddModalFn(){
+    document.getElementById("addModal").classList.remove("show");
+  }
+  document.getElementById("openAddFab").addEventListener("click", function(){ vibrate(60); openAddModal(); });
+  document.getElementById("closeAddModal").addEventListener("click", function(){ vibrate(30); closeAddModalFn(); });
+
+  document.getElementById("photoTriggerBtn").addEventListener("click", function(){
+    vibrate(30);
+    document.getElementById("f-photo").click();
+  });
+
+  document.getElementById("f-photo").addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var img = new Image();
+      img.onload = function(){
+        var maxW = 600;
+        var scale = Math.min(1, maxW / img.width);
+        var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        capturedPhoto = canvas.toDataURL("image/jpeg", 0.7);
+        document.getElementById("photoPreviewImg").src = capturedPhoto;
+        document.getElementById("photoPreview").style.display = "flex";
+      };
+      img.onerror = function(){ showToast("Could not read image"); };
+      img.src = ev.target.result;
+    };
+    reader.onerror = function(){ showToast("Could not read image"); };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("removePhotoBtn").addEventListener("click", function(){
+    vibrate(30);
+    capturedPhoto = null;
+    document.getElementById("f-photo").value = "";
+    document.getElementById("photoPreview").style.display = "none";
+  });
+
+  document.getElementById("addForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var type = document.getElementById("f-type").value;
+    var siteName = document.getElementById("f-site").value.trim();
+    var docNumber = document.getElementById("f-doc").value.trim();
+    var expiryDate = document.getElementById("f-expiry").value;
+    var contact = document.getElementById("f-contact").value.trim();
+
+    if (!siteName || !docNumber || !expiryDate || !contact){ showToast("Please complete all fields"); return; }
+
+    vibrate(60);
+    var permits = loadJSON(KEYS.PERMITS, []);
+    permits.push({ id: uid(), type:type, siteName:siteName, docNumber:docNumber, expiryDate:expiryDate, contact:contact, photo: capturedPhoto });
+    var ok = saveJSON(KEYS.PERMITS, permits);
+
+    e.target.reset();
+    capturedPhoto = null;
+    document.getElementById("photoPreview").style.display = "none";
+
+    if (ok){
+      showToast("Pass Saved Successfully");
+      closeAddModalFn();
+      switchTab("dashboard");
+    } else {
+      showToast("Could not save. Storage may be full.");
+    }
+  });
+
+  /* ---------------- THEME TOGGLE ---------------- */
+  var sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg>';
+  var moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/></svg>';
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("themeToggle").innerHTML = theme === "dark" ? sunIcon : moonIcon;
+    var metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", theme === "dark" ? "#101113" : "#ffffff");
+  }
+  document.getElementById("themeToggle").addEventListener("click", function(){
+    vibrate(40);
+    var current = document.documentElement.getAttribute("data-theme");
+    var next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+    saveJSON(KEYS.THEME, next);
+  });
+
+  /* ---------------- INIT ---------------- */
+  function init(){
+    seedIfEmpty();
+    applyTheme(loadJSON(KEYS.THEME, "light"));
+    renderDashboard();
+    populateSiteSuggestions();
+  }
+  init();
+
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("service-worker.js").catch(function(err){
+        console.warn("Service worker registration failed", err);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
