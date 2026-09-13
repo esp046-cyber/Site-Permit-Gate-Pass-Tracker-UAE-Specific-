@@ -1326,9 +1326,15 @@
   function buildTileLayerForTheme(theme){
     var layer;
     if (theme === "dark"){
-      layer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+      // CartoDB's free dark_all tiles now require an API key (shows an
+      // "API KEY REQUIRED" watermark). Esri's Dark Gray Canvas is a
+      // long-standing free, no-key, no-registration basemap on the same
+      // ArcGIS Online infrastructure already used for the satellite layer
+      // below, so it's a verified, redundant-free alternative.
+      layer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 16,
+        maxNativeZoom: 16,
+        attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS"
       });
     } else {
       layer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
