@@ -339,7 +339,8 @@
   .kanban-col.col-submitted{border-top:4px solid var(--info);}
   .kanban-col.col-processing{border-top:4px solid var(--warning);}
   .kanban-col.col-ready{border-top:4px solid var(--success);}
-  .renewal-card{background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-s); padding:12px; margin-bottom:10px;}
+  .renewal-card{position:relative; background:var(--surface-raised); border:1px solid var(--border); border-radius:var(--radius-s); padding:12px 30px 12px 12px; margin-bottom:10px;}
+  .sync-icon{position:absolute; top:8px; right:8px; width:17px; height:17px;}
   html[data-theme="light"] .renewal-card{
     border-color:transparent;
     box-shadow:0 4px 15px rgba(0,0,0,0.05);
@@ -405,7 +406,19 @@
   .btn-close{flex:1; min-height:56px; border-radius:var(--radius-m); border:1.5px solid var(--border-strong); background:transparent; color:var(--text); font-weight:800; font-size:0.95rem; cursor:pointer;}
 
   /* ---------- EMBEDDED MAP ---------- */
-  .map-wrap{position:relative; height:50vh; min-height:280px; border-radius:var(--radius-m); overflow:hidden; border:1px solid var(--border); margin-bottom:18px; background:var(--surface);}
+  .map-toggle-btn{
+    width:100%; min-height:44px; border-radius:var(--radius-m); border:1.5px solid var(--border-strong);
+    background:var(--surface); color:var(--text); font-weight:700; font-size:0.85rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:10px;
+  }
+  .map-toggle-btn svg{width:16px; height:16px; transition:transform .3s ease;}
+  .map-toggle-btn.is-collapsed svg{transform:rotate(-90deg);}
+  .map-wrap{
+    position:relative; height:40vh; min-height:240px; border-radius:var(--radius-m); overflow:hidden;
+    border:1px solid var(--border); margin-bottom:18px; background:var(--surface);
+    transition: height .35s ease, min-height .35s ease, margin-bottom .35s ease, border-color .35s ease;
+  }
+  .map-wrap.collapsed{ height:0; min-height:0; margin-bottom:0; border-color:transparent; }
   #siteMap{width:100%; height:100%;}
   .map-fallback{
     position:absolute; inset:0; z-index:500; background:var(--surface);
@@ -428,6 +441,27 @@
   }
   .github-footer svg{width:20px; height:20px;}
   .github-footer:active{opacity:.7;}
+
+  /* ---------- QR CODE MODAL (forced high-contrast, ignores theme) ---------- */
+  .qr-overlay{
+    position:fixed; inset:0; z-index:80; background:rgba(0,0,0,0.65);
+    display:none; align-items:center; justify-content:center; padding:24px;
+    opacity:0; transition:opacity .2s ease;
+  }
+  .qr-overlay.show{ display:flex; opacity:1; }
+  .qr-box{
+    background:#ffffff; color:#111111; border-radius:18px; padding:28px 24px 22px;
+    text-align:center; max-width:320px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  .qr-box h3{ margin:0 0 4px; font-size:1.1rem; font-weight:700; color:#111111; }
+  .qr-box .qr-sub{ font-size:0.82rem; color:#4b5563; margin-bottom:18px; line-height:1.4; }
+  #qrcodeCanvas{ display:flex; justify-content:center; align-items:center; min-height:220px; margin:0 auto 20px; background:#ffffff; }
+  #qrcodeCanvas img, #qrcodeCanvas canvas{ background:#ffffff; }
+  .qr-close-btn{
+    width:100%; min-height:52px; border-radius:var(--radius-m); border:1.5px solid #111111;
+    background:#ffffff; color:#111111; font-weight:800; font-size:0.95rem; cursor:pointer;
+  }
+  .qr-close-btn:active{ background:#f3f4f6; }
 </style>
 </head>
 <body>
@@ -465,7 +499,11 @@
     <!-- SITE DIRECTORY -->
     <section class="view" id="view-directory">
       <h2 class="section-title">Site Directory</h2>
-      <div class="map-wrap">
+      <button class="map-toggle-btn" id="mapToggleBtn" type="button">
+        <svg id="mapToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <span id="mapToggleLabel">Collapse Map</span>
+      </button>
+      <div class="map-wrap" id="siteMapWrap">
         <div id="siteMap"></div>
         <div class="map-fallback" id="mapFallback">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6Z"/><path d="M9 4v14M15 6v14"/></svg>
@@ -505,6 +543,16 @@
   <div id="toast"></div>
 
   <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+  <!-- HIGH-CONTRAST QR CODE MODAL (always forced light for physical scanner readability) -->
+  <div class="qr-overlay" id="qrOverlay">
+    <div class="qr-box">
+      <h3>Scan at Security Gate</h3>
+      <div class="qr-sub" id="qrSubtitle"></div>
+      <div id="qrcodeCanvas"></div>
+      <button class="qr-close-btn" id="closeQrBtn" type="button">Close</button>
+    </div>
+  </div>
 
   <!-- FULL SCREEN ADD PASS MODAL -->
   <div class="fullscreen-modal" id="addModal">
@@ -585,13 +633,33 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin=""></script>
 <script>
 (function(){
   "use strict";
 
-  var KEYS = { PERMITS:"uae_permits_v1", SITES:"uae_sites_v1", THEME:"uae_theme_v1", RENEWALS:"uae_renewals_v1", SYNC_QUEUE:"uae_sync_queue_v1" };
+  var KEYS = { PERMITS:"uae_permits_v1", SITES:"uae_sites_v1", THEME:"uae_theme_v1", RENEWALS:"uae_renewals_v1", SYNC_QUEUE:"uae_sync_queue_v1", MAP_COLLAPSED:"uae_map_collapsed_v1" };
   var STAGES = ["submitted","processing","ready"];
   var STAGE_LABELS = { submitted:"Submitted", processing:"Under HSE Review", ready:"Ready for Collection" };
+
+  // Catch anything unexpected (bad data, a rendering hiccup, a failed
+  // third-party script) so the app degrades gracefully with a toast instead
+  // of freezing or going blank on-site.
+  var lastErrorToastAt = 0;
+  function notifyUnexpectedError(){
+    var now = Date.now();
+    if (now - lastErrorToastAt < 4000) return; // avoid spamming toasts if several errors fire together
+    lastErrorToastAt = now;
+    try{ showToast("Something went wrong. Your data is safe - try again."); }catch(e){}
+  }
+  window.addEventListener("error", function(evt){
+    console.error("Unhandled error:", evt && evt.error ? evt.error : evt.message);
+    notifyUnexpectedError();
+  });
+  window.addEventListener("unhandledrejection", function(evt){
+    console.error("Unhandled promise rejection:", evt && evt.reason);
+    notifyUnexpectedError();
+  });
 
   function vibrate(ms){ try{ if (navigator.vibrate) navigator.vibrate(ms || 50); }catch(e){} }
 
@@ -872,12 +940,21 @@
       '<div class="detail-row"><span class="k">Document No.</span><span class="v id-blur" data-blur-id="' + blurId + '">' + escapeHtml(p.docNumber) + '</span></div>' +
       '<div class="detail-row"><span class="k">Expiry Date</span><span class="v">' + formatDate(p.expiryDate) + '</span></div>' +
       '<div class="detail-row"><span class="k">Manager Contact</span><span class="v"><a href="tel:' + escapeHtml(p.contact) + '" style="color:var(--accent); text-decoration:none;">' + escapeHtml(p.contact) + '</a></span></div>' +
+      '<button class="btn-secondary" id="showQrBtn">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;vertical-align:-3px;margin-right:6px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M14 20h3M20 14v3M20 20v.01"/></svg>' +
+        'Show QR Code' +
+      '</button>' +
       '<div class="sheet-actions">' +
         '<button class="btn-danger" id="deletePermitBtn">Delete Pass</button>' +
         '<button class="btn-close" id="closeSheetBtn">Close</button>' +
       '</div>';
 
     bindBlurToggle(sheet);
+
+    document.getElementById("showQrBtn").addEventListener("click", function(){
+      vibrate(30);
+      openQrModal(p);
+    });
 
     document.getElementById("deletePermitBtn").addEventListener("click", function(){
       vibrate(50);
@@ -889,7 +966,7 @@
         showToast("Pass deleted");
       }
     });
-    document.getElementById("closeSheetBtn").addEventListener("click", closeSheet);
+    document.getElementById("closeSheetBtn").addEventListener("click", function(){ vibrate(20); closeSheet(); });
     openSheet();
   }
 
@@ -904,8 +981,14 @@
         var stageIdx = STAGES.indexOf(r.stage);
         var backBtn = stageIdx > 0 ? '<button class="r-btn" data-move="-1" data-id="' + r.id + '">&larr; Back</button>' : '';
         var fwdBtn = stageIdx < STAGES.length - 1 ? '<button class="r-btn" data-move="1" data-id="' + r.id + '">Next &rarr;</button>' : '<button class="r-btn" data-collect="1" data-id="' + r.id + '">Mark Collected</button>';
+        var syncIcon = "";
+        if (r.syncStatus === "queued"){
+          syncIcon = '<svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Sync queued (offline)"><title>Queued for sync</title><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>';
+        } else if (r.syncStatus === "synced"){
+          syncIcon = '<svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Synced to ClickUp"><title>Synced to ClickUp</title><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9z"/><path d="M9.5 14l2 2 3.5-4"/></svg>';
+        }
         return (
-          '<div class="renewal-card">' +
+          '<div class="renewal-card">' + syncIcon +
             '<div class="r-title">' + escapeHtml(r.siteName) + '</div>' +
             '<div class="r-sub">' + escapeHtml(r.passType) + '</div>' +
             (r.notes ? '<div class="r-notes">' + escapeHtml(r.notes) + '</div>' : '') +
@@ -974,6 +1057,22 @@
     saveJSON(KEYS.SYNC_QUEUE, queue);
   }
 
+  // Persist a renewal item's webhook sync outcome and refresh the Kanban
+  // board if it's currently visible, so the cloud icon updates live.
+  function markSyncStatus(itemId, status){
+    if (!itemId) return;
+    try{
+      var list = loadJSON(KEYS.RENEWALS, []);
+      var found = list.find(function(x){ return x.id === itemId; });
+      if (!found) return;
+      found.syncStatus = status;
+      saveJSON(KEYS.RENEWALS, list);
+      if (document.getElementById("view-renewals").classList.contains("active")) renderKanban();
+    }catch(err){
+      console.warn("Could not update sync status", err);
+    }
+  }
+
   function flushOfflineQueue(){
     var queue = loadJSON(KEYS.SYNC_QUEUE, []);
     if (!queue.length) return;
@@ -983,6 +1082,8 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
+      }).then(function(res){
+        if (res.ok) markSyncStatus(payload._localId, "synced");
       }).catch(function(err){
         console.warn("Queued ClickUp sync failed on retry:", err);
       });
@@ -1004,11 +1105,13 @@
       customFields: {
         passId: item.docNumber || "",
         contactNumber: item.contact || ""
-      }
+      },
+      _localId: item.id
     };
 
     if (!navigator.onLine){
       queueOfflinePayload(payload);
+      markSyncStatus(item.id, "queued");
       showToast("Offline. Sync queued.");
       return;
     }
@@ -1020,11 +1123,18 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     }).then(function(res){
-      if (!res.ok) console.warn("ClickUp webhook responded with status", res.status);
+      if (res.ok){
+        markSyncStatus(item.id, "synced");
+      } else {
+        console.warn("ClickUp webhook responded with status", res.status);
+        queueOfflinePayload(payload);
+        markSyncStatus(item.id, "queued");
+      }
     }).catch(function(err){
       // Network dropped mid-request despite navigator.onLine being true - fall back to the queue.
       console.warn("ClickUp webhook sync failed, queuing for retry:", err);
       queueOfflinePayload(payload);
+      markSyncStatus(item.id, "queued");
     });
   }
 
@@ -1065,7 +1175,7 @@
       renderKanban();
       showToast("Added to renewal pipeline");
     });
-    document.getElementById("cancelRenewalBtn").addEventListener("click", closeSheet);
+    document.getElementById("cancelRenewalBtn").addEventListener("click", function(){ vibrate(20); closeSheet(); });
     openSheet();
   }
 
@@ -1175,7 +1285,7 @@
       initOrUpdateMap();
       showToast("Site saved successfully");
     });
-    document.getElementById("cancelSiteBtn").addEventListener("click", closeSheet);
+    document.getElementById("cancelSiteBtn").addEventListener("click", function(){ vibrate(20); closeSheet(); });
     openSheet();
   }
 
@@ -1189,6 +1299,7 @@
   /* ---------------- EMBEDDED LEAFLET MAP ---------------- */
   var siteMapInstance = null;
   var siteMarkersLayer = null;
+  var currentTileLayer = null;
   var tileErrorCount = 0;
 
   function showMapFallback(){
@@ -1204,6 +1315,69 @@
     document.getElementById("mapFallback").classList.remove("show");
   }
 
+  function attachTileHandlers(layer){
+    layer.on("tileerror", function(){
+      tileErrorCount++;
+      if (tileErrorCount >= 4) showMapFallback();
+    });
+    layer.on("tileload", function(){ hideMapFallback(); tileErrorCount = 0; });
+  }
+
+  function buildTileLayerForTheme(theme){
+    var layer;
+    if (theme === "dark"){
+      layer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+      });
+    } else {
+      layer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        attribution: "Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics"
+      });
+    }
+    attachTileHandlers(layer);
+    return layer;
+  }
+
+  function swapMapTiles(theme){
+    if (!siteMapInstance) return;
+    try{
+      if (currentTileLayer) siteMapInstance.removeLayer(currentTileLayer);
+      currentTileLayer = buildTileLayerForTheme(theme);
+      currentTileLayer.addTo(siteMapInstance);
+      tileErrorCount = 0;
+      hideMapFallback();
+    }catch(err){
+      console.error("Tile swap error", err);
+    }
+  }
+
+  // Status-linked marker color: red = expired / expiring in <3 days,
+  // green = has an active valid pass, blue = no pass on file for this site.
+  function getSiteMarkerColor(siteName){
+    var permits = loadJSON(KEYS.PERMITS, []).filter(function(p){ return p.siteName === siteName; });
+    if (!permits.length) return "blue";
+    var hasCritical = permits.some(function(p){
+      var s = getStatus(p.expiryDate);
+      return s.key === "expired" || (s.key !== "expired" && s.days < 3);
+    });
+    return hasCritical ? "red" : "green";
+  }
+
+  function createColoredDivIcon(color){
+    var fillMap = { green:"#15803D", red:"#B91C1C", blue:"#1D4ED8" };
+    var fill = fillMap[color] || fillMap.blue;
+    return L.divIcon({
+      className: "custom-pin-icon",
+      html: '<div style="background:' + fill + '; width:22px; height:22px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45);"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 22],
+      popupAnchor: [0, -26]
+    });
+  }
+
   function initOrUpdateMap(){
     var sites = loadJSON(KEYS.SITES, []);
 
@@ -1215,17 +1389,8 @@
     try{
       if (!siteMapInstance){
         siteMapInstance = L.map("siteMap", { attributionControl:true, zoomControl:true }).setView([24.4, 54.3], 7);
-        var tileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-          maxZoom: 19,
-          maxNativeZoom: 19,
-          attribution: "Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics"
-        });
-        tileLayer.on("tileerror", function(){
-          tileErrorCount++;
-          if (tileErrorCount >= 4) showMapFallback();
-        });
-        tileLayer.on("tileload", function(){ hideMapFallback(); });
-        tileLayer.addTo(siteMapInstance);
+        currentTileLayer = buildTileLayerForTheme(document.documentElement.getAttribute("data-theme"));
+        currentTileLayer.addTo(siteMapInstance);
         siteMarkersLayer = L.layerGroup().addTo(siteMapInstance);
       }
 
@@ -1243,7 +1408,8 @@
             '<a href="tel:' + escapeHtml(s.managerPhone) + '">Call</a>' +
             '<a href="' + mapsUrl + '" target="_blank" rel="noopener">Navigate</a>' +
           '</div>';
-        L.marker([lat, lng]).addTo(siteMarkersLayer).bindPopup(popupHtml);
+        var icon = createColoredDivIcon(getSiteMarkerColor(s.siteName));
+        L.marker([lat, lng], { icon: icon }).addTo(siteMarkersLayer).bindPopup(popupHtml);
       });
       if (bounds.length) siteMapInstance.fitBounds(bounds, { padding:[30,30], maxZoom:10 });
 
@@ -1255,6 +1421,26 @@
     }
   }
 
+  /* ---------------- COLLAPSIBLE MAP ---------------- */
+  function applyMapCollapsedState(collapsed){
+    var wrap = document.getElementById("siteMapWrap");
+    var btn = document.getElementById("mapToggleBtn");
+    var label = document.getElementById("mapToggleLabel");
+    wrap.classList.toggle("collapsed", collapsed);
+    btn.classList.toggle("is-collapsed", collapsed);
+    label.textContent = collapsed ? "Expand Map" : "Collapse Map";
+  }
+
+  document.getElementById("mapToggleBtn").addEventListener("click", function(){
+    vibrate(30);
+    var collapsed = !document.getElementById("siteMapWrap").classList.contains("collapsed");
+    applyMapCollapsedState(collapsed);
+    saveJSON(KEYS.MAP_COLLAPSED, collapsed);
+    if (!collapsed){
+      setTimeout(function(){ if (siteMapInstance) siteMapInstance.invalidateSize(); }, 380);
+    }
+  });
+
   window.addEventListener("offline", showMapFallback);
   window.addEventListener("online", function(){
     if (document.getElementById("view-directory").classList.contains("active")) initOrUpdateMap();
@@ -1264,6 +1450,38 @@
   function openSheet(){ document.getElementById("overlay").classList.add("show"); }
   function closeSheet(){ document.getElementById("overlay").classList.remove("show"); }
   document.getElementById("overlay").addEventListener("click", function(e){ if (e.target.id === "overlay") closeSheet(); });
+
+  /* ---------------- HIGH-CONTRAST QR CODE MODAL ---------------- */
+  // Always renders pure white background / pure black code, regardless of
+  // the app's current theme, so physical gate scanners can read it reliably.
+  function openQrModal(permit){
+    try{
+      var container = document.getElementById("qrcodeCanvas");
+      container.innerHTML = "";
+      document.getElementById("qrSubtitle").textContent = permit.siteName + " \u2014 " + permit.docNumber;
+      var qrString = ["PERMIT", permit.siteName, permit.type, permit.docNumber, permit.expiryDate].join("|");
+
+      if (typeof QRCode !== "undefined"){
+        new QRCode(container, {
+          text: qrString,
+          width: 220,
+          height: 220,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } else {
+        container.innerHTML = '<p style="color:#B91C1C; font-weight:700; font-size:0.85rem; padding:0 8px;">QR library unavailable offline. Connect once to cache it, then it will work offline too.</p>';
+      }
+      document.getElementById("qrOverlay").classList.add("show");
+    }catch(err){
+      console.error("QR generation error", err);
+      showToast("Could not generate QR code");
+    }
+  }
+  function closeQrModal(){ document.getElementById("qrOverlay").classList.remove("show"); }
+  document.getElementById("closeQrBtn").addEventListener("click", function(){ vibrate(30); closeQrModal(); });
+  document.getElementById("qrOverlay").addEventListener("click", function(e){ if (e.target.id === "qrOverlay") closeQrModal(); });
 
   /* ---------------- TOAST ---------------- */
   var toastTimer = null;
@@ -1287,7 +1505,7 @@
       btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
     });
     if (tabName === "dashboard") renderDashboard();
-    if (tabName === "directory") { renderSiteList(); initOrUpdateMap(); }
+    if (tabName === "directory") { renderSiteList(); applyMapCollapsedState(loadJSON(KEYS.MAP_COLLAPSED, false)); initOrUpdateMap(); }
     if (tabName === "renewals") renderKanban();
   }
 
@@ -1408,8 +1626,13 @@
     document.getElementById("photoPreview").style.display = "none";
   });
 
+  var isSubmittingPass = false;
   document.getElementById("addForm").addEventListener("submit", function(e){
     e.preventDefault();
+    if (isSubmittingPass) return; // guard against a fast double-tap creating a duplicate pass
+    isSubmittingPass = true;
+    setTimeout(function(){ isSubmittingPass = false; }, 800);
+
     var type = document.getElementById("f-type").value;
     var siteName = document.getElementById("f-site").value.trim();
     var docNumber = document.getElementById("f-doc").value.trim();
@@ -1450,6 +1673,7 @@
     document.getElementById("themeToggle").innerHTML = theme === "dark" ? sunIcon : moonIcon;
     var metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) metaTheme.setAttribute("content", theme === "dark" ? "#101113" : "#ffffff");
+    if (typeof swapMapTiles === "function") swapMapTiles(theme);
   }
   document.getElementById("themeToggle").addEventListener("click", function(){
     vibrate(40);

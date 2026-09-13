@@ -18,7 +18,8 @@ var APP_SHELL = [
   "./icon-192.png",
   "./icon-512.png",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
 ];
 
 self.addEventListener("install", function (event) {
