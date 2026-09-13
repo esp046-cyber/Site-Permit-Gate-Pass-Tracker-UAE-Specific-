@@ -108,7 +108,7 @@
   /* ---------- MAIN / VIEWS ---------- */
   main{
     flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
-    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 20px);
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 44px);
   }
   .view{display:none; padding:16px 16px 8px;}
   .view.active{display:block; animation: fadeSlideUp .38s cubic-bezier(.2,.7,.3,1);}
@@ -196,7 +196,7 @@
 
   /* ---------- FAB ---------- */
   .fab-wrap{
-    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 18px);
+    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 42px);
     transform:translateX(-50%); z-index:50;
   }
   .fab{
@@ -301,8 +301,19 @@
   .site-name{font-size:1.15rem; font-weight:600; margin-bottom:10px;}
   .contact-row{display:flex; justify-content:space-between; align-items:center; min-height:40px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:0.9rem;}
   .contact-row:last-of-type{border-bottom:none;}
-  .contact-row .role{color:var(--text-dim); font-weight:700;}
-  .contact-row .person{font-weight:600; text-align:right;}
+  .contact-row .role{
+    font-size:11px; font-weight:700; color:#6b7280; letter-spacing:0.05em; text-transform:uppercase;
+  }
+  html[data-theme="dark"] .contact-row .role{ color:#94a3b8; }
+  .contact-row .person{ font-size:15px; font-weight:600; color:var(--text); text-align:right; }
+  .coord-wrap{display:inline-flex; align-items:center; gap:6px; justify-content:flex-end;}
+  .coord-mono{font-family:var(--mono); font-size:0.85rem;}
+  .copy-btn{
+    background:none; border:none; padding:6px; margin:-6px; color:var(--text-dim); cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .copy-btn svg{width:15px; height:15px;}
+  .copy-btn:active{color:var(--accent);}
   .site-actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
   .site-actions a{
     flex:1 1 30%; text-align:center; min-height:56px; display:flex; align-items:center; justify-content:center;
@@ -349,9 +360,12 @@
     -webkit-backdrop-filter: blur(14px) saturate(150%);
     backdrop-filter: blur(14px) saturate(150%);
     border-top:1px solid var(--border);
-    padding-bottom:env(safe-area-inset-bottom);
-    height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+    height:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px);
   }
+  /* Extra bottom clearance so icons never sit flush against older, non-notch
+     iPhone bezels (e.g. iPhone 8 Plus) that report 0 for safe-area-inset-bottom. */
+  .bottom-nav{ padding-bottom:24px; }
   .tab-btn{flex:1; border:none; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; color:var(--text-dim); padding-top:6px;}
   .tab-btn svg{width:22px; height:22px;}
   .tab-btn span{font-size:0.72rem; font-weight:700;}
@@ -359,7 +373,7 @@
 
   /* ---------- TOAST ---------- */
   #toast{
-    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
+    position:fixed; left:50%; bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 38px);
     transform:translate(-50%, 20px);
     background:var(--border-strong); color:var(--bg);
     padding:13px 22px; border-radius:30px; font-size:14px; font-weight:700;
@@ -473,7 +487,7 @@
     </button>
   </div>
 
-  <nav class="tabbar">
+  <nav class="tabbar bottom-nav">
     <button class="tab-btn active" data-tab="dashboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
       <span>Dashboard</span>
@@ -508,7 +522,20 @@
             <option value="Gate Pass">Gate Pass</option>
             <option value="PTW">Permit to Work (PTW)</option>
             <option value="HSE Induction">HSE Safety Induction</option>
+            <option value="Material / Tool Pass">Material / Tool Pass</option>
           </select>
+        </div>
+        <div class="field" id="calibrationFieldWrap" style="display:none;">
+          <label>Attach Tool Calibration Certificate (Optional)</label>
+          <button type="button" class="photo-capture-btn" id="calibrationTriggerBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg>
+            Upload Calibration Certificate
+          </button>
+          <input type="file" accept=".pdf,image/*" id="f-calibration" style="display:none">
+          <div class="photo-preview" id="calibrationPreview" style="display:none;">
+            <span id="calibrationFileName" style="font-weight:700; font-size:0.85rem; color:var(--text);"></span>
+            <span class="remove-photo" id="removeCalibrationBtn">Remove</span>
+          </div>
         </div>
         <div class="field">
           <label for="f-site">Site Name</label>
@@ -841,6 +868,7 @@
       (p.photo ? '<img class="detail-photo" src="' + p.photo + '" alt="Document photo">' : '') +
       '<div class="detail-row"><span class="k">Status</span><span class="v badge status-' + s.key + '">' + s.label + '</span></div>' +
       '<div class="detail-row"><span class="k">Prerequisite Docs</span><span class="v">' + (p.docsAuthenticated ? "Authenticated" : "Pending") + '</span></div>' +
+      (p.calibrationCertName ? '<div class="detail-row"><span class="k">Calibration Cert.</span><span class="v">' + escapeHtml(p.calibrationCertName) + '</span></div>' : '') +
       '<div class="detail-row"><span class="k">Document No.</span><span class="v id-blur" data-blur-id="' + blurId + '">' + escapeHtml(p.docNumber) + '</span></div>' +
       '<div class="detail-row"><span class="k">Expiry Date</span><span class="v">' + formatDate(p.expiryDate) + '</span></div>' +
       '<div class="detail-row"><span class="k">Manager Contact</span><span class="v"><a href="tel:' + escapeHtml(p.contact) + '" style="color:var(--accent); text-decoration:none;">' + escapeHtml(p.contact) + '</a></span></div>' +
@@ -1009,7 +1037,7 @@
       '<h2>Add Renewal</h2>' +
       '<div class="sub">Track a document currently in the approval process</div>' +
       '<div class="field"><label>Site Name</label><input type="text" id="rn-site" list="rnSiteList" required><datalist id="rnSiteList">' + siteOptions + '</datalist></div>' +
-      '<div class="field"><label>Pass Type</label><select id="rn-type"><option>Gate Pass</option><option>PTW</option><option>HSE Induction</option></select></div>' +
+      '<div class="field"><label>Pass Type</label><select id="rn-type"><option>Gate Pass</option><option>PTW</option><option>HSE Induction</option><option>Material / Tool Pass</option></select></div>' +
       '<div class="field"><label>Pass / Document ID</label><input type="text" id="rn-docid" placeholder="e.g. PTW-2026-0110"></div>' +
       '<div class="field"><label>Contact Number</label><input type="tel" id="rn-contact" placeholder="+971 5X XXX XXXX"></div>' +
       '<div class="field"><label>Expiry / Due Date</label><input type="date" id="rn-expiry"></div>' +
@@ -1056,7 +1084,7 @@
           '<div class="site-name">' + escapeHtml(s.siteName) + '</div>' +
           '<div class="contact-row"><span class="role">Site Manager</span><span class="person">' + escapeHtml(s.managerName) + '</span></div>' +
           '<div class="contact-row"><span class="role">HSE Officer</span><span class="person">' + escapeHtml(s.hseName) + '</span></div>' +
-          '<div class="contact-row"><span class="role">GPS Coordinates</span><span class="person" style="font-family:var(--mono); font-weight:600;">' + escapeHtml(s.lat) + ', ' + escapeHtml(s.lng) + '</span></div>' +
+          '<div class="contact-row"><span class="role">GPS Coordinates</span><span class="person coord-wrap"><span class="coord-mono">' + escapeHtml(s.lat) + ', ' + escapeHtml(s.lng) + '</span><button type="button" class="copy-btn" data-copy="' + escapeHtml(s.lat) + ', ' + escapeHtml(s.lng) + '" aria-label="Copy coordinates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span></div>' +
           '<div class="site-actions">' +
             '<a class="btn-call" href="tel:' + escapeHtml(s.managerPhone) + '">Call</a>' +
             '<a class="btn-wa" href="' + waUrl + '" target="_blank" rel="noopener">' +
@@ -1073,6 +1101,43 @@
       vibrate(40);
       openAddSiteSheet();
     });
+
+    Array.prototype.forEach.call(container.querySelectorAll(".copy-btn"), function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        vibrate(30);
+        copyToClipboard(btn.getAttribute("data-copy"));
+      });
+    });
+  }
+
+  function copyToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        showToast("Coordinates copied");
+      }).catch(function(){
+        fallbackCopyToClipboard(text);
+      });
+    } else {
+      fallbackCopyToClipboard(text);
+    }
+  }
+
+  function fallbackCopyToClipboard(text){
+    try{
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast("Coordinates copied");
+    }catch(err){
+      showToast("Could not copy coordinates");
+    }
   }
 
   function openAddSiteSheet(){
@@ -1150,9 +1215,10 @@
     try{
       if (!siteMapInstance){
         siteMapInstance = L.map("siteMap", { attributionControl:true, zoomControl:true }).setView([24.4, 54.3], 7);
-        var tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 18,
-          attribution: "&copy; OpenStreetMap contributors"
+        var tileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
+          maxNativeZoom: 19,
+          attribution: "Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics"
         });
         tileLayer.on("tileerror", function(){
           tileErrorCount++;
@@ -1244,11 +1310,59 @@
 
   /* ---------------- ADD PASS FULLSCREEN MODAL ---------------- */
   var capturedPhoto = null;
+  var calibrationCertData = null;
+  var calibrationCertName = null;
+  var CALIBRATION_TYPES = ["PTW", "Material / Tool Pass"];
+
+  function updateCalibrationVisibility(){
+    var val = document.getElementById("f-type").value;
+    var show = CALIBRATION_TYPES.indexOf(val) !== -1;
+    document.getElementById("calibrationFieldWrap").style.display = show ? "block" : "none";
+    if (!show){
+      calibrationCertData = null;
+      calibrationCertName = null;
+      document.getElementById("f-calibration").value = "";
+      document.getElementById("calibrationPreview").style.display = "none";
+    }
+  }
+  document.getElementById("f-type").addEventListener("change", function(){
+    vibrate(20);
+    updateCalibrationVisibility();
+  });
+
+  document.getElementById("calibrationTriggerBtn").addEventListener("click", function(){
+    vibrate(30);
+    document.getElementById("f-calibration").click();
+  });
+
+  document.getElementById("f-calibration").addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      calibrationCertData = ev.target.result;
+      calibrationCertName = file.name;
+      document.getElementById("calibrationFileName").textContent = file.name;
+      document.getElementById("calibrationPreview").style.display = "flex";
+      showToast("Certificate attached");
+    };
+    reader.onerror = function(){ showToast("Could not read certificate file"); };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById("removeCalibrationBtn").addEventListener("click", function(){
+    vibrate(30);
+    calibrationCertData = null;
+    calibrationCertName = null;
+    document.getElementById("f-calibration").value = "";
+    document.getElementById("calibrationPreview").style.display = "none";
+  });
 
   function openAddModal(){
     populateSiteSuggestions();
     var todayISO = new Date().toISOString().slice(0,10);
     document.getElementById("f-expiry").setAttribute("min", todayISO);
+    updateCalibrationVisibility();
     document.getElementById("addModal").classList.add("show");
   }
   function closeAddModalFn(){
@@ -1307,12 +1421,16 @@
 
     vibrate(60);
     var permits = loadJSON(KEYS.PERMITS, []);
-    permits.push({ id: uid(), type:type, siteName:siteName, docNumber:docNumber, expiryDate:expiryDate, contact:contact, photo: capturedPhoto, docsAuthenticated: docsAuthenticated });
+    permits.push({ id: uid(), type:type, siteName:siteName, docNumber:docNumber, expiryDate:expiryDate, contact:contact, photo: capturedPhoto, docsAuthenticated: docsAuthenticated, calibrationCert: calibrationCertData, calibrationCertName: calibrationCertName });
     var ok = saveJSON(KEYS.PERMITS, permits);
 
     e.target.reset();
     capturedPhoto = null;
     document.getElementById("photoPreview").style.display = "none";
+    calibrationCertData = null;
+    calibrationCertName = null;
+    document.getElementById("calibrationPreview").style.display = "none";
+    updateCalibrationVisibility();
 
     if (ok){
       showToast("Pass Saved Successfully");

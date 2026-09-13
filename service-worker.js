@@ -52,7 +52,10 @@ self.addEventListener("activate", function (event) {
 });
 
 function isMapTileRequest(url) {
-  return /tile\.openstreetmap\.org/.test(url) || /\{s\}\.tile/.test(url) || /basemaps\.cartocdn\.com/.test(url);
+  return /tile\.openstreetmap\.org/.test(url) ||
+    /\{s\}\.tile/.test(url) ||
+    /basemaps\.cartocdn\.com/.test(url) ||
+    /arcgisonline\.com/.test(url);
 }
 
 // Network-first for live map tiles, falling back to whatever was cached
